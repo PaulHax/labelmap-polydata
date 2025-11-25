@@ -40,9 +40,9 @@ export function serializePolyData(polyData: vtkPolyData): SerializedPolyData {
   const normalsArray = polyData.getPointData().getNormals();
 
   return {
-    points: new Float32Array(points.getData()),
-    polys: new Uint32Array(polys.getData()),
-    normals: normalsArray ? new Float32Array(normalsArray.getData()) : null,
+    points: points.getData() as Float32Array,
+    polys: polys.getData() as Uint32Array,
+    normals: normalsArray ? (normalsArray.getData() as Float32Array) : null,
   };
 }
 
