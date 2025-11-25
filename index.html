@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>labelmap-polydata Demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      button {
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+      }
+      #renderContainer {
+        width: 600px;
+        height: 400px;
+        background: #1a1a1a;
+        border-radius: 4px;
+        margin: 1rem 0;
+      }
+      #output {
+        background: #f5f5f5;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        font-family: monospace;
+        max-height: 150px;
+        overflow-y: auto;
+        font-size: 0.85rem;
+      }
+      .controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 1rem 0;
+      }
+      .control-group {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .control-group label {
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>vtk.js labelmap-polydata Demo</h1>
+    <p>Convert ImageData labelmap to PolyData meshes using marching cubes.</p>
+
+    <div class="controls">
+      <div class="control-group">
+        <input type="file" id="fileInput" accept=".vti" />
+        <button id="runTest">Load Sample</button>
+      </div>
+      <div class="control-group">
+        <label
+          ><input type="radio" name="execMode" value="main" checked />
+          Main</label
+        >
+        <label
+          ><input type="radio" name="execMode" value="worker" /> Worker</label
+        >
+      </div>
+    </div>
+
+    <div id="renderContainer"></div>
+    <pre id="output">Choose a .vti labelmap image or click Load Sample...</pre>
+
+    <script type="module">
+      import vtkImageData from "@kitware/vtk.js/Common/DataModel/ImageData";
+      import vtkDataArray from "@kitware/vtk.js/Common/Core/DataArray";
+      import vtkXMLImageDataReader from "@kitware/vtk.js/IO/XML/XMLImageDataReader";
+      import { labelmapToPolyDatas } from "./src/labelmapToPolyDatas";
+      import { createPolyDataViewer } from "./src/polyDataViewer";
+
+      let loadedImageData = null;
+      const viewer = createPolyDataViewer(
+        document.getElementById("renderContainer"),
+      );
+
+      function useWorker() {
+        return (
+          document.querySelector('input[name="execMode"]:checked').value ===
+          "worker"
+        );
+      }
+
+      function createTestLabelmap() {
+        const dims = [32, 32, 32];
+        const size = dims[0] * dims[1] * dims[2];
+        const scalars = new Uint8Array(size);
+
+        const center1 = [10, 16, 16];
+        const center2 = [22, 16, 16];
+        const radius = 6;
+
+        for (let z = 0; z < dims[2]; z++) {
+          for (let y = 0; y < dims[1]; y++) {
+            for (let x = 0; x < dims[0]; x++) {
+              const idx = x + y * dims[0] + z * dims[0] * dims[1];
+
+              const d1 = Math.sqrt(
+                (x - center1[0]) ** 2 +
+                  (y - center1[1]) ** 2 +
+                  (z - center1[2]) ** 2,
+              );
+              const d2 = Math.sqrt(
+                (x - center2[0]) ** 2 +
+                  (y - center2[1]) ** 2 +
+                  (z - center2[2]) ** 2,
+              );
+
+              if (d1 <= radius) {
+                scalars[idx] = 1;
+              } else if (d2 <= radius) {
+                scalars[idx] = 2;
+              }
+            }
+          }
+        }
+
+        const imageData = vtkImageData.newInstance();
+        imageData.setDimensions(dims);
+        imageData.setSpacing([1, 1, 1]);
+        imageData.setOrigin([0, 0, 0]);
+
+        const dataArray = vtkDataArray.newInstance({
+          values: scalars,
+          numberOfComponents: 1,
+        });
+        imageData.getPointData().setScalars(dataArray);
+
+        return imageData;
+      }
+
+      function log(msg) {
+        document.getElementById("output").textContent += msg + "\n";
+      }
+
+      function clearLog() {
+        document.getElementById("output").textContent = "";
+      }
+
+      async function processLabelmap(imageData, useWorker, name) {
+        clearLog();
+        const dims = imageData.getDimensions();
+        log(`Processing: ${name}`);
+        log(`Dimensions: ${dims[0]} x ${dims[1]} x ${dims[2]}`);
+        log(`Spacing: ${imageData.getSpacing().join(", ")}`);
+        log("");
+
+        log(`Running marching cubes (useWorker: ${useWorker})...`);
+        const start = performance.now();
+
+        const result = await labelmapToPolyDatas(imageData, { useWorker });
+
+        const elapsed = (performance.now() - start).toFixed(2);
+        log(`Done in ${elapsed}ms.`);
+        log("");
+
+        const segmentCount = Object.keys(result).length;
+        if (segmentCount === 0) {
+          log("No segments found (all values are 0).");
+        } else {
+          log(`Found ${segmentCount} segment(s):`);
+          for (const [segmentValue, polyData] of Object.entries(result)) {
+            const numPoints = polyData.getNumberOfPoints();
+            const numCells = polyData.getNumberOfCells();
+            log(
+              `  Segment ${segmentValue}: ${numPoints} points, ${numCells} triangles`,
+            );
+          }
+          viewer.setPolyDatas(result);
+        }
+      }
+
+      async function runDemo() {
+        const labelmap = createTestLabelmap();
+        await processLabelmap(labelmap, useWorker(), "Sample (2 spheres)");
+      }
+
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          clearLog();
+          log(`Loading ${file.name}...`);
+
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const arrayBuffer = event.target.result;
+
+            const vtiReader = vtkXMLImageDataReader.newInstance();
+            vtiReader.parseAsArrayBuffer(arrayBuffer);
+
+            loadedImageData = vtiReader.getOutputData(0);
+
+            if (loadedImageData) {
+              await processLabelmap(loadedImageData, useWorker(), file.name);
+            } else {
+              log("Failed to parse .vti file.");
+            }
+          };
+          reader.onerror = () => log("Error reading file.");
+          reader.readAsArrayBuffer(file);
+        });
+
+      document.getElementById("runTest").addEventListener("click", runDemo);
+    </script>
+  </body>
+</html>
