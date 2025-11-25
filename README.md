@@ -54,6 +54,31 @@ const polyDatas = await labelmapToPolyDatas(labelmap, {
 });
 ```
 
+## World Space Alignment
+
+The marching cubes algorithm outputs polydata in scaled index space (origin + index × spacing) but does not apply the image's direction matrix. For images with non-identity direction (oblique/rotated scans), apply the direction matrix to align the mesh with world space:
+
+```typescript
+import vtkMatrixBuilder from "@kitware/vtk.js/Common/Core/MatrixBuilder";
+
+function buildDirectionMatrix(imageData: vtkImageData): Float64Array {
+  const origin = imageData.getOrigin();
+  const direction = imageData.getDirection();
+
+  // Rotate around origin: T(origin) × R(direction) × T(-origin)
+  return vtkMatrixBuilder
+    .buildFromRadian()
+    .translate(origin[0], origin[1], origin[2])
+    .multiply3x3(direction)
+    .translate(-origin[0], -origin[1], -origin[2])
+    .getMatrix();
+}
+
+// Apply to actor
+const directionMatrix = buildDirectionMatrix(labelmap);
+actor.setUserMatrix(directionMatrix);
+```
+
 ## License
 
 MIT

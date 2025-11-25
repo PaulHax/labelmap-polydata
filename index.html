@@ -163,6 +163,9 @@
         log(`Processing: ${name}`);
         log(`Dimensions: ${dims[0]} x ${dims[1]} x ${dims[2]}`);
         log(`Spacing: ${imageData.getSpacing().join(", ")}`);
+        log(`Origin: ${imageData.getOrigin().join(", ")}`);
+        const dir = imageData.getDirection();
+        log(`Direction: [${dir.slice(0,3).map(v => v.toFixed(2)).join(", ")}] ...`);
         log("");
 
         log(`Running marching cubes (worker: ${withWorker})...`);
@@ -188,7 +191,7 @@
               `  Segment ${segmentValue}: ${numPoints} points, ${numCells} triangles`,
             );
           }
-          viewer.setPolyDatas(result);
+          viewer.setPolyDatas(result, imageData);
         }
       }
 
