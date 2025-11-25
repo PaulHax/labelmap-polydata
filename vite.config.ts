@@ -5,10 +5,14 @@ export default defineConfig({
     lib: {
       entry: "src/labelmapToPolyDatas.ts",
       formats: ["es"],
-      fileName: "labelmap-polydata",
     },
     rollupOptions: {
       external: [/@kitware\/vtk\.js/],
+      output: {
+        preserveModules: true,
+        preserveModulesRoot: "src",
+        entryFileNames: "[name].js",
+      },
     },
   },
 });

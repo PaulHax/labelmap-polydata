@@ -4,12 +4,16 @@
   "license": "MIT",
   "type": "module",
   "description": "Convert vtk.js labelmap images to polygon meshes",
-  "main": "dist/labelmap-polydata.js",
+  "main": "dist/labelmapToPolyDatas.js",
   "types": "dist/labelmapToPolyDatas.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/labelmap-polydata.js",
+      "import": "./dist/labelmapToPolyDatas.js",
       "types": "./dist/labelmapToPolyDatas.d.ts"
+    },
+    "./*": {
+      "import": "./dist/*.js",
+      "types": "./dist/*.d.ts"
     }
   },
   "scripts": {
