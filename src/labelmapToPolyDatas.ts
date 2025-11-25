@@ -1,14 +1,12 @@
 import vtkImageData from "@kitware/vtk.js/Common/DataModel/ImageData";
+import vtkPolyData from "@kitware/vtk.js/Common/DataModel/PolyData";
 import vtkDataArray from "@kitware/vtk.js/Common/Core/DataArray";
 import vtkImageMarchingCubes from "@kitware/vtk.js/Filters/General/ImageMarchingCubes";
-import { serializeImageData, deserializePolyData } from "./serializeVtk";
-import type {
-  LabelmapToPolyDatasOptions,
-  PolyDataResult,
-  SerializedPolyData,
-} from "./types";
-
-export type { LabelmapToPolyDatasOptions, PolyDataResult } from "./types";
+import {
+  serializeImageData,
+  serializePolyData,
+  deserializePolyData,
+} from "./serializeVtk";
 
 function createBinaryMask(
   imageData: vtkImageData,
@@ -51,12 +49,12 @@ function getUniqueSegmentValues(
 
 export function coreLabelmapToPolyDatas(
   imageData: vtkImageData,
-  options: LabelmapToPolyDatasOptions = {},
-): PolyDataResult {
+  options: { segments?: number[] } = {},
+) {
   const scalars = imageData.getPointData().getScalars().getData() as Uint8Array;
   const segments = options.segments ?? getUniqueSegmentValues(scalars);
 
-  const result: PolyDataResult = {};
+  const result = {} as Record<number, vtkPolyData>;
 
   for (const segmentValue of segments) {
     const binaryMask = createBinaryMask(imageData, segmentValue);
@@ -78,35 +76,34 @@ export function coreLabelmapToPolyDatas(
 
 export async function labelmapToPolyDatas(
   imageData: vtkImageData,
-  options: LabelmapToPolyDatasOptions = {},
-): Promise<PolyDataResult> {
-  if (!options.useWorker) {
-    return coreLabelmapToPolyDatas(imageData, options);
+  options: { segments?: number[]; worker?: Worker } = {},
+) {
+  const { worker, ...coreOptions } = options;
+
+  if (!worker) {
+    return coreLabelmapToPolyDatas(imageData, coreOptions);
   }
 
-  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
-    type: "module",
-  });
   const serialized = serializeImageData(imageData);
 
-  return new Promise((resolve, reject) => {
-    worker.onmessage = (
-      e: MessageEvent<{ result: Record<number, SerializedPolyData> }>,
-    ) => {
-      const result: PolyDataResult = {};
-      for (const [value, data] of Object.entries(e.data.result)) {
-        result[Number(value)] = deserializePolyData(data);
-      }
-      worker.terminate();
-      resolve(result);
-    };
-    worker.onerror = (error) => {
-      worker.terminate();
-      reject(error);
-    };
-    worker.postMessage({ imageDataSerialized: serialized, options }, [
-      serialized.scalars.buffer,
-      serialized.direction.buffer,
-    ]);
-  });
+  return new Promise<ReturnType<typeof coreLabelmapToPolyDatas>>(
+    (resolve, reject) => {
+      worker.onmessage = (
+        e: MessageEvent<{
+          result: Record<number, ReturnType<typeof serializePolyData>>;
+        }>,
+      ) => {
+        const result = {} as ReturnType<typeof coreLabelmapToPolyDatas>;
+        for (const [value, data] of Object.entries(e.data.result)) {
+          result[Number(value)] = deserializePolyData(data);
+        }
+        resolve(result);
+      };
+      worker.onerror = reject;
+      worker.postMessage(
+        { imageDataSerialized: serialized, options: coreOptions },
+        [serialized.scalars.buffer, serialized.direction.buffer],
+      );
+    },
+  );
 }

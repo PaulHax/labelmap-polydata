@@ -1,22 +1,21 @@
-import { deserializeImageData, serializePolyData } from "./serializeVtk";
+import {
+  deserializeImageData,
+  serializeImageData,
+  serializePolyData,
+} from "./serializeVtk";
 import { coreLabelmapToPolyDatas } from "./labelmapToPolyDatas";
-import type {
-  LabelmapToPolyDatasOptions,
-  SerializedImageData,
-  SerializedPolyData,
-} from "./types";
 
-interface WorkerMessage {
-  imageDataSerialized: SerializedImageData;
-  options: LabelmapToPolyDatasOptions;
-}
+type WorkerMessage = {
+  imageDataSerialized: ReturnType<typeof serializeImageData>;
+  options: { segments?: number[] };
+};
 
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
   const { imageDataSerialized, options } = e.data;
   const imageData = deserializeImageData(imageDataSerialized);
   const polyDatas = coreLabelmapToPolyDatas(imageData, options);
 
-  const result: Record<number, SerializedPolyData> = {};
+  const result: Record<number, ReturnType<typeof serializePolyData>> = {};
   const transferables: ArrayBuffer[] = [];
 
   for (const [value, polyData] of Object.entries(polyDatas)) {

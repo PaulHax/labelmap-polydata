@@ -3,11 +3,8 @@ import vtkPolyData from "@kitware/vtk.js/Common/DataModel/PolyData";
 import vtkDataArray from "@kitware/vtk.js/Common/Core/DataArray";
 import vtkPoints from "@kitware/vtk.js/Common/Core/Points";
 import vtkCellArray from "@kitware/vtk.js/Common/Core/CellArray";
-import type { SerializedImageData, SerializedPolyData } from "./types";
 
-export function serializeImageData(
-  imageData: vtkImageData,
-): SerializedImageData {
+export function serializeImageData(imageData: vtkImageData) {
   const scalars = imageData.getPointData().getScalars();
   return {
     dimensions: imageData.getDimensions() as [number, number, number],
@@ -18,7 +15,9 @@ export function serializeImageData(
   };
 }
 
-export function deserializeImageData(data: SerializedImageData): vtkImageData {
+export function deserializeImageData(
+  data: ReturnType<typeof serializeImageData>,
+): vtkImageData {
   const imageData = vtkImageData.newInstance();
   imageData.setDimensions(data.dimensions);
   imageData.setSpacing(data.spacing);
@@ -34,7 +33,7 @@ export function deserializeImageData(data: SerializedImageData): vtkImageData {
   return imageData;
 }
 
-export function serializePolyData(polyData: vtkPolyData): SerializedPolyData {
+export function serializePolyData(polyData: vtkPolyData) {
   const points = polyData.getPoints();
   const polys = polyData.getPolys();
   const normalsArray = polyData.getPointData().getNormals();
@@ -46,7 +45,9 @@ export function serializePolyData(polyData: vtkPolyData): SerializedPolyData {
   };
 }
 
-export function deserializePolyData(data: SerializedPolyData): vtkPolyData {
+export function deserializePolyData(
+  data: ReturnType<typeof serializePolyData>,
+): vtkPolyData {
   const polyData = vtkPolyData.newInstance();
 
   const points = vtkPoints.newInstance();
