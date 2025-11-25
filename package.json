@@ -6,7 +6,7 @@
   "description": "Convert vtk.js labelmap images to polygon meshes",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paulhax/labelmap-polydata.git"
+    "url": "https://github.com/PaulHax/labelmap-polydata.git"
   },
   "files": [
     "dist"
