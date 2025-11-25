@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -78,13 +78,23 @@
       import vtkXMLImageDataReader from "@kitware/vtk.js/IO/XML/XMLImageDataReader";
       import { labelmapToPolyDatas } from "./src/labelmapToPolyDatas";
       import { createPolyDataViewer } from "./src/polyDataViewer";
+      import LabelmapWorker from "./src/worker?worker";
 
       let loadedImageData = null;
+      let worker = null;
+
       const viewer = createPolyDataViewer(
         document.getElementById("renderContainer"),
       );
 
-      function useWorker() {
+      function getWorker() {
+        if (!worker) {
+          worker = new LabelmapWorker();
+        }
+        return worker;
+      }
+
+      function shouldUseWorker() {
         return (
           document.querySelector('input[name="execMode"]:checked').value ===
           "worker"
@@ -147,7 +157,7 @@
         document.getElementById("output").textContent = "";
       }
 
-      async function processLabelmap(imageData, useWorker, name) {
+      async function processLabelmap(imageData, withWorker, name) {
         clearLog();
         const dims = imageData.getDimensions();
         log(`Processing: ${name}`);
@@ -155,10 +165,12 @@
         log(`Spacing: ${imageData.getSpacing().join(", ")}`);
         log("");
 
-        log(`Running marching cubes (useWorker: ${useWorker})...`);
+        log(`Running marching cubes (worker: ${withWorker})...`);
         const start = performance.now();
 
-        const result = await labelmapToPolyDatas(imageData, { useWorker });
+        const result = await labelmapToPolyDatas(imageData, {
+          worker: withWorker ? getWorker() : undefined,
+        });
 
         const elapsed = (performance.now() - start).toFixed(2);
         log(`Done in ${elapsed}ms.`);
@@ -182,7 +194,11 @@
 
       async function runDemo() {
         const labelmap = createTestLabelmap();
-        await processLabelmap(labelmap, useWorker(), "Sample (2 spheres)");
+        await processLabelmap(
+          labelmap,
+          shouldUseWorker(),
+          "Sample (2 spheres)",
+        );
       }
 
       document
@@ -204,7 +220,11 @@
             loadedImageData = vtiReader.getOutputData(0);
 
             if (loadedImageData) {
-              await processLabelmap(loadedImageData, useWorker(), file.name);
+              await processLabelmap(
+                loadedImageData,
+                shouldUseWorker(),
+                file.name,
+              );
             } else {
               log("Failed to parse .vti file.");
             }
