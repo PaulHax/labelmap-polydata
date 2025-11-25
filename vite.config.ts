@@ -3,7 +3,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   build: {
     lib: {
-      entry: "src/labelmapToPolyDatas.ts",
+      entry: {
+        labelmapToPolyDatas: "src/labelmapToPolyDatas.ts",
+        worker: "src/worker.ts",
+      },
       formats: ["es"],
     },
     rollupOptions: {

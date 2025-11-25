@@ -18,6 +18,10 @@
       "import": "./dist/labelmapToPolyDatas.js",
       "types": "./dist/labelmapToPolyDatas.d.ts"
     },
+    "./worker": {
+      "import": "./dist/worker.js",
+      "types": "./dist/worker.d.ts"
+    },
     "./*": {
       "import": "./dist/*.js",
       "types": "./dist/*.d.ts"
