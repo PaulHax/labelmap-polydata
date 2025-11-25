@@ -9,7 +9,8 @@
     "url": "https://github.com/PaulHax/labelmap-polydata.git"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "main": "dist/labelmapToPolyDatas.js",
   "types": "dist/labelmapToPolyDatas.d.ts",
@@ -19,7 +20,7 @@
       "types": "./dist/labelmapToPolyDatas.d.ts"
     },
     "./worker": {
-      "import": "./dist/worker.js",
+      "import": "./src/worker.ts",
       "types": "./dist/worker.d.ts"
     },
     "./*": {
@@ -29,7 +30,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build && tsc",
     "build:demo": "vite build --config vite.demo.config.ts --outDir demo-dist",
     "preview": "vite preview"
   },
