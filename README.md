@@ -13,7 +13,7 @@ Requires `@kitware/vtk.js` as a peer dependency.
 ## Usage
 
 ```typescript
-import { labelmapToPolyDatas } from "labelmap-polydata";
+import { labelmapToPolyDatas } from "labelmap-polydata/labelmapToPolyDatas";
 
 // Create or load a labelmap ImageData where voxel values
 // represent segment IDs (0 = background)
@@ -30,24 +30,66 @@ for (const [segmentValue, polyData] of Object.entries(polyDatas)) {
 
 ## Web Worker Support
 
-For non-blocking conversion, provide a worker instance. The consumer's bundler handles vtk.js resolution, so you control the version.
+For non-blocking conversion, create a local worker file in your project. This lets your bundler resolve vtk.js, so you control the version.
+
+**1. Create a worker file in your project:**
 
 ```typescript
-import { labelmapToPolyDatas } from "labelmap-polydata";
-import LabelmapWorker from "labelmap-polydata/worker?worker";
+// src/workers/labelmapWorker.ts
+import { coreLabelmapToPolyDatas } from "labelmap-polydata/labelmapToPolyDatas";
+import {
+  deserializeImageData,
+  serializePolyData,
+  type serializeImageData,
+} from "labelmap-polydata/serializeVtk";
 
-// Create worker (reuse for multiple calls)
+type WorkerMessage = {
+  imageDataSerialized: ReturnType<typeof serializeImageData>;
+  options: { segments?: number[] };
+};
+
+self.onmessage = (e: MessageEvent<WorkerMessage>) => {
+  const { imageDataSerialized, options } = e.data;
+  const imageData = deserializeImageData(imageDataSerialized);
+  const polyDatas = coreLabelmapToPolyDatas(imageData, options);
+
+  const result: Record<number, ReturnType<typeof serializePolyData>> = {};
+  const transferables: ArrayBuffer[] = [];
+
+  for (const [value, polyData] of Object.entries(polyDatas)) {
+    const serialized = serializePolyData(polyData);
+    result[Number(value)] = serialized;
+    transferables.push(
+      serialized.points.buffer as ArrayBuffer,
+      serialized.polys.buffer as ArrayBuffer
+    );
+    if (serialized.normals) {
+      transferables.push(serialized.normals.buffer as ArrayBuffer);
+    }
+  }
+
+  self.postMessage({ result }, transferables);
+};
+```
+
+**2. Use the worker:**
+
+```typescript
+import { labelmapToPolyDatas } from "labelmap-polydata/labelmapToPolyDatas";
+import LabelmapWorker from "./workers/labelmapWorker?worker";
+
 const worker = new LabelmapWorker();
 
 const polyDatas = await labelmapToPolyDatas(labelmap, { worker });
 
-// When done, terminate the worker
 worker.terminate();
 ```
 
 ## Options
 
 ```typescript
+import { labelmapToPolyDatas } from "labelmap-polydata/labelmapToPolyDatas";
+
 const polyDatas = await labelmapToPolyDatas(labelmap, {
   worker: myWorker, // Worker instance for non-blocking execution
   segments: [1, 2, 3], // Process specific segment values (default: all non-zero)
