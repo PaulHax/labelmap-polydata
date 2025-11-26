@@ -1,17 +1,22 @@
 import {
   deserializeImageData,
-  serializeImageData,
   serializePolyData,
+  type serializeImageData,
 } from "./serializeVtk";
 import { coreLabelmapToPolyDatas } from "./labelmapToPolyDatas";
 
-type WorkerMessage = {
+export type WorkerMessage = {
   imageDataSerialized: ReturnType<typeof serializeImageData>;
-  options: { segments?: number[] };
+  options?: { segments?: number[] };
 };
 
-self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const { imageDataSerialized, options } = e.data;
+export type WorkerResponse = {
+  result: Record<number, ReturnType<typeof serializePolyData>>;
+  transferables: ArrayBuffer[];
+};
+
+export function handleLabelmapMessage(data: WorkerMessage): WorkerResponse {
+  const { imageDataSerialized, options = {} } = data;
   const imageData = deserializeImageData(imageDataSerialized);
   const polyDatas = coreLabelmapToPolyDatas(imageData, options);
 
@@ -23,12 +28,12 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
     result[Number(value)] = serialized;
     transferables.push(
       serialized.points.buffer as ArrayBuffer,
-      serialized.polys.buffer as ArrayBuffer,
+      serialized.polys.buffer as ArrayBuffer
     );
     if (serialized.normals) {
       transferables.push(serialized.normals.buffer as ArrayBuffer);
     }
   }
 
-  self.postMessage({ result }, transferables);
-};
+  return { result, transferables };
+}
