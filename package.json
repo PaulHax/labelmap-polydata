@@ -15,9 +15,25 @@
   "main": "dist/labelmapToPolyDatas.js",
   "types": "dist/labelmapToPolyDatas.d.ts",
   "exports": {
-    "./*": {
-      "import": "./dist/*.js",
-      "types": "./dist/*.d.ts"
+    "./labelmapToPolyDatas": {
+      "types": "./dist/labelmapToPolyDatas.d.ts",
+      "import": "./dist/labelmapToPolyDatas.js"
+    },
+    "./serializeVtk": {
+      "types": "./dist/serializeVtk.d.ts",
+      "import": "./dist/serializeVtk.js"
+    },
+    "./directionMatrix": {
+      "types": "./dist/directionMatrix.d.ts",
+      "import": "./dist/directionMatrix.js"
+    },
+    "./workerHandler": {
+      "types": "./dist/workerHandler.d.ts",
+      "import": "./dist/workerHandler.js"
+    },
+    "./polyDataViewer": {
+      "types": "./dist/polyDataViewer.d.ts",
+      "import": "./dist/polyDataViewer.js"
     }
   },
   "scripts": {

@@ -30,44 +30,16 @@ for (const [segmentValue, polyData] of Object.entries(polyDatas)) {
 
 ## Web Worker Support
 
-For non-blocking conversion, create a local worker file in your project. This lets your bundler resolve vtk.js, so you control the version.
+For non-blocking conversion, create a worker file in your project. This lets your bundler resolve vtk.js, so you control the version.
 
 **1. Create a worker file in your project:**
 
 ```typescript
 // src/workers/labelmapWorker.ts
-import { coreLabelmapToPolyDatas } from "labelmap-polydata/labelmapToPolyDatas";
-import {
-  deserializeImageData,
-  serializePolyData,
-  type serializeImageData,
-} from "labelmap-polydata/serializeVtk";
+import { handleLabelmapMessage } from "labelmap-polydata/workerHandler";
 
-type WorkerMessage = {
-  imageDataSerialized: ReturnType<typeof serializeImageData>;
-  options: { segments?: number[] };
-};
-
-self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const { imageDataSerialized, options } = e.data;
-  const imageData = deserializeImageData(imageDataSerialized);
-  const polyDatas = coreLabelmapToPolyDatas(imageData, options);
-
-  const result: Record<number, ReturnType<typeof serializePolyData>> = {};
-  const transferables: ArrayBuffer[] = [];
-
-  for (const [value, polyData] of Object.entries(polyDatas)) {
-    const serialized = serializePolyData(polyData);
-    result[Number(value)] = serialized;
-    transferables.push(
-      serialized.points.buffer as ArrayBuffer,
-      serialized.polys.buffer as ArrayBuffer
-    );
-    if (serialized.normals) {
-      transferables.push(serialized.normals.buffer as ArrayBuffer);
-    }
-  }
-
+self.onmessage = (e) => {
+  const { result, transferables } = handleLabelmapMessage(e.data);
   self.postMessage({ result }, transferables);
 };
 ```
