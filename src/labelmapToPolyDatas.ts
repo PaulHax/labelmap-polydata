@@ -2,6 +2,8 @@ import vtkImageData from "@kitware/vtk.js/Common/DataModel/ImageData";
 import vtkPolyData from "@kitware/vtk.js/Common/DataModel/PolyData";
 import vtkDataArray from "@kitware/vtk.js/Common/Core/DataArray";
 import vtkImageMarchingCubes from "@kitware/vtk.js/Filters/General/ImageMarchingCubes";
+import { determinant3x3 } from "@kitware/vtk.js/Common/Core/Math";
+import type { Matrix3x3 } from "@kitware/vtk.js/types";
 import {
   serializeImageData,
   serializePolyData,
@@ -47,12 +49,26 @@ function getUniqueSegmentValues(
   return Array.from(uniqueValues).sort((a, b) => a - b);
 }
 
+function flipNormals(polyData: vtkPolyData) {
+  const normals = polyData.getPointData().getNormals();
+  if (normals) {
+    const data = normals.getData();
+    for (let i = 0; i < data.length; i++) {
+      data[i] = -data[i];
+    }
+    normals.modified();
+  }
+}
+
 export function coreLabelmapToPolyDatas(
   imageData: vtkImageData,
   options: { segments?: number[] } = {},
 ) {
   const scalars = imageData.getPointData().getScalars().getData() as Uint8Array;
   const segments = options.segments ?? getUniqueSegmentValues(scalars);
+
+  const direction = imageData.getDirection() as unknown as Matrix3x3;
+  const hasReflection = determinant3x3(direction) < 0;
 
   const result = {} as Record<number, vtkPolyData>;
 
@@ -67,6 +83,9 @@ export function coreLabelmapToPolyDatas(
 
     const polyData = marchingCubes.getOutputData();
     if (polyData && polyData.getNumberOfPoints() > 0) {
+      if (hasReflection) {
+        flipNormals(polyData);
+      }
       result[segmentValue] = polyData;
     }
   }
